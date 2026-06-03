@@ -1,0 +1,4 @@
+inicio str;
+  nome : caractere;
+  nome := "Rafael";
+fim

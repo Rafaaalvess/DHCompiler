@@ -1,0 +1,9 @@
+inicio logicos;
+  a : logico;
+  b : logico;
+  a := verdadeiro;
+  b := falso;
+  a := not b;
+  a := a && b;
+  a := a ou b;
+fim

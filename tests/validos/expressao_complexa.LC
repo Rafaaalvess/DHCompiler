@@ -1,0 +1,7 @@
+inicio expr;
+  a : inteiro;
+  b : inteiro;
+  c : inteiro;
+  c := (a + b) * 2 - 1;
+  c := a div b mod 3;
+fim

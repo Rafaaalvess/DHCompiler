@@ -1,0 +1,10 @@
+inicio condicional;
+  x : inteiro;
+  x := 5;
+  se x > 3 entao inicio
+    x := 1;
+  fim
+  senao inicio
+    x := 0;
+  fim
+fim

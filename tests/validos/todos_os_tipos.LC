@@ -1,0 +1,6 @@
+inicio tipos;
+  a : inteiro;
+  b : real;
+  c : logico;
+  d : caractere;
+fim

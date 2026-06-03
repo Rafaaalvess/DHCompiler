@@ -1,0 +1,8 @@
+inicio logica;
+  a : logico;
+  b : logico;
+  a := not b;
+  a := not not b;
+  a := a && b;
+  a := a ou b;
+fim

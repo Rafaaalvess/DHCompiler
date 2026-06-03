@@ -1,0 +1,4 @@
+inicio atr;
+  x : inteiro;
+  x := 10;
+fim

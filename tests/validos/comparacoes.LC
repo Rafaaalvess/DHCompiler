@@ -1,0 +1,10 @@
+inicio cmp;
+  a : inteiro;
+  b : logico;
+  b := a == 10;
+  b := a <> 5;
+  b := a < 3;
+  b := a > 3;
+  b := a <= 3;
+  b := a >= 3;
+fim

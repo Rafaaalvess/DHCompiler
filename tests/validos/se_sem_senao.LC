@@ -1,0 +1,7 @@
+inicio condicional;
+  x : inteiro;
+  x := 5;
+  se x == 5 entao inicio
+    x := 10;
+  fim
+fim
