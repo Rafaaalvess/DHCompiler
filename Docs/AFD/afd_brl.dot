@@ -1,0 +1,207 @@
+digraph AFD_DHCompiler {
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 1. Configurações Globais de Layout e Roteamento
+    // ─────────────────────────────────────────────────────────────────────────
+    rankdir = LR;       // Leitura da esquerda para a direita
+    nodesep = 0.6;      // Espaçamento horizontal entre nós
+    ranksep = 1.2;      // Espaçamento vertical entre camadas
+    splines = spline;   // Curvas suaves compatíveis com labels no motor dot
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 2. Tipografia
+    // ─────────────────────────────────────────────────────────────────────────
+    edge [fontname="Courier", fontsize=10];
+    node [fontname="Helvetica", fontsize=11];
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 3. Nó de Entrada Invisível (Padrão Formal)
+    // ─────────────────────────────────────────────────────────────────────────
+    node [shape=point, width=0, height=0] start;
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 4. Estado de Exceção / Erro Léxico
+    //    Destaque em vermelho. Caminhos que chegam aqui:
+    //      - Caractere inválido em q0  (@, #, %, ...)
+    //      - String não fechada        (LF ou EOF antes de '"')
+    //      - Comentário não fechado    (EOF dentro de /* ... */)
+    //      - '=' isolado               (q_eq_st + outro)
+    //      - '&' isolado               (q_amp_st + outro)
+    //      - '.' não seguido de dígito (q_dot + outro)
+    // ─────────────────────────────────────────────────────────────────────────
+    node [shape=doublecircle, style=filled, fillcolor=lightcoral]
+        ERRO_LEXICO [label="ERRO\nLÉXICO"];
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 5. Estados Finais de Aceitação (Tokens Válidos)
+    //    Cada estado representa o reconhecimento completo de um token.
+    //
+    //    CONVENÇÃO — arestas tracejadas ("outro *"):
+    //      Indicam RETRAÇÃO do ponteiro pos. O caractere que encerrou o token
+    //      NÃO é consumido; pos permanece apontando para ele, tornando-o o
+    //      primeiro char do próximo ciclo de reconhecimento.
+    // ─────────────────────────────────────────────────────────────────────────
+    node [shape=doublecircle, style=solid, fillcolor=white];
+
+    // — Literais —
+    q_ID     [label="q_ID\nID / Keyword"];
+    q_INT    [label="q_INT\nCONST_INT"];
+    q_REAL   [label="q_REAL\nCONST_REAL"];
+    q_STR    [label="q_STR\nCONST_STR"];
+
+    // — Operadores aritméticos —
+    q_PLUS   [label="q_PLUS\nPLUS (+)"];
+    q_MINUS  [label="q_MINUS\nMINUS (-)"];
+    q_STAR   [label="q_STAR\nSTAR (*)"];
+    q_SLASH  [label="q_SLASH\nSLASH (/)"];
+
+    // — Delimitadores —
+    q_SEMI   [label="q_SEMI\nSEMICOLON (;)"];
+    q_COMMA  [label="q_COMMA\nCOMMA (,)"];
+    q_LPAREN [label="q_LPAREN\nLPAREN (()"];
+    q_RPAREN [label="q_RPAREN\nRPAREN ())"];
+    q_COLON  [label="q_COLON\nCOLON (:)"];
+
+    // — Operadores compostos —
+    q_ASSIGN [label="q_ASSIGN\nASSIGN (:=)"];
+    q_AND    [label="q_AND\nAND (&&)"];
+
+    // — Operadores relacionais —
+    q_LT     [label="q_LT\nLT (<)"];
+    q_GT     [label="q_GT\nGT (>)"];
+    q_LE     [label="q_LE\nLE (<=)"];
+    q_GE     [label="q_GE\nGE (>=)"];
+    q_NEQ    [label="q_NEQ\nNEQ (<>)"];
+    q_EQUAL  [label="q_EQUAL\nEQUAL (==)"];
+
+    // — Controle —
+    q_EOF    [label="q_EOF\nEOF"];
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 6. Estados Intermediários
+    //    O autômato ainda não determinou qual token está sendo formado.
+    // ─────────────────────────────────────────────────────────────────────────
+    node [shape=circle];
+
+    q0          [label="q0"];               // estado inicial / hub central
+    q_id_body   [label="q_id\n(ID)"];       // acumulando chars de identificador
+    q_int_body  [label="q_int\n(int)"];     // acumulando dígitos inteiros
+    q_dot       [label="q_dot\n(.)"];       // leu '.': aguarda dígito para confirmar real
+    q_real_body [label="q_real\n(frac)"];   // acumulando parte fracionária
+    q_str_body  [label="q_str\n(\")"];      // dentro do conteúdo da string
+    q_fslash    [label="q_fsl\n(/)"];       // leu '/': SLASH ou início de comentário
+    q_cmt_body  [label="q_cmt\n(cmt)"];    // dentro do corpo do comentário
+    q_cmt_star  [label="q_cmt*\n(*)"];     // leu '*' no comentário: possível fechamento
+    q_colon_st  [label="q_col\n(:)"];       // leu ':': COLON ou ASSIGN
+    q_lt_st     [label="q_lt\n(<)"];        // leu '<': LT, LE ou NEQ
+    q_gt_st     [label="q_gt\n(>)"];        // leu '>': GT ou GE
+    q_eq_st     [label="q_eq\n(=)"];        // leu '=': EQUAL ou ERRO
+    q_amp_st    [label="q_amp\n(&)"];       // leu '&': AND ou ERRO
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 7. Transições de Estado
+    // ─────────────────────────────────────────────────────────────────────────
+
+    start -> q0;
+
+    // ── Whitespace ────────────────────────────────────────────────────────────
+    //    Espaço, tab, CR e LF são descartados. q0 faz loop em si mesmo.
+    q0 -> q0 [label="SP | TAB\nCR | LF", constraint=false];
+
+    // ── Identificadores e Palavras Reservadas ─────────────────────────────────
+    //    Aceita [a-zA-Z_] como primeiro char, depois [a-zA-Z0-9_]*.
+    //    Retract implícito: pos aponta no char externo ao sair do loop.
+    //    Classificação O(1): reservedWords.getOrDefault(lexema, ID)
+    //
+    //    19 palavras reservadas:
+    //    inteiro  caractere  logico    real      se       entao    senao
+    //    enquanto faca       inicio    fim       leia     escreva
+    //    ou       div        mod       not       verdadeiro        falso
+    q0        -> q_id_body [label="[a-zA-Z_]"];
+    q_id_body -> q_id_body [label="[a-zA-Z0-9_]", constraint=false];
+    q_id_body -> q_ID      [label="outro *", style=dashed];
+
+    // ── Constante Inteira ─────────────────────────────────────────────────────
+    //    {la:[0-9]}: lookahead de 1 char. O '.' só é consumido se o próximo
+    //    char for dígito; caso contrário pos não avança (retract implícito).
+    q0         -> q_int_body [label="[0-9]"];
+    q_int_body -> q_int_body [label="[0-9]", constraint=false];
+    q_int_body -> q_dot      [label="'.' {la:[0-9]}"];
+    q_int_body -> q_INT      [label="outro *", style=dashed];
+
+    // ── Constante Real ────────────────────────────────────────────────────────
+    //    7 dígitos de precisão | ocupa 4 bytes (DD) | intervalo: 1.5e-45 a 3.4e38
+    q_dot       -> q_real_body [label="[0-9]"];
+    q_dot       -> ERRO_LEXICO [label="outro\n(. sem dígito)"];
+    q_real_body -> q_real_body [label="[0-9]", constraint=false];
+    q_real_body -> q_REAL      [label="outro *", style=dashed];
+
+    // ── String Literal ────────────────────────────────────────────────────────
+    //    Delimitada por aspas duplas. Proibido: LF e EOF antes do fechamento.
+    //    Máximo 255 chars úteis | terminador '$' adicionado em memória (512B).
+    q0         -> q_str_body  [label="'\"'"];
+    q_str_body -> q_str_body  [label="[^\"\\n]", constraint=false];
+    q_str_body -> q_STR       [label="'\"'"];
+    q_str_body -> ERRO_LEXICO [label="LF | EOF\n(string nao\nfechada)"];
+
+    // ── Barra: Operador SLASH ou Início de Comentário ─────────────────────────
+    q0       -> q_fslash   [label="'/'"];
+    q_fslash -> q_cmt_body [label="'*'"];
+    q_fslash -> q_SLASH    [label="outro *", style=dashed];
+
+    // ── Comentário /* ... */ ──────────────────────────────────────────────────
+    //    Uma ou múltiplas linhas. O avanço interno incrementa o contador de
+    //    linha a cada LF encontrado → mensagens de erro com número correto.
+    //    '*' seguido de '*': permanece em q_cmt_star (ex: "/**/" é válido).
+    //    EOF antes do fechamento → ERRO LÉXICO imediato.
+    q_cmt_body -> q_cmt_body  [label="[^*]", constraint=false];
+    q_cmt_body -> q_cmt_star  [label="'*'"];
+    q_cmt_body -> ERRO_LEXICO [label="EOF\n(coment. nao\nfechado)"];
+
+    q_cmt_star -> q0          [label="'/'\n(coment. fechado)", constraint=false];
+    q_cmt_star -> q_cmt_star  [label="'*'", constraint=false];
+    q_cmt_star -> q_cmt_body  [label="[^*/]"];
+    q_cmt_star -> ERRO_LEXICO [label="EOF\n(coment. nao\nfechado)"];
+
+    // ── Operadores de 1 Caractere ─────────────────────────────────────────────
+    q0 -> q_PLUS   [label="'+'"];
+    q0 -> q_MINUS  [label="'-'"];
+    q0 -> q_STAR   [label="'*'"];
+    q0 -> q_SEMI   [label="';'"];
+    q0 -> q_COMMA  [label="','"];
+    q0 -> q_LPAREN [label="'('"];
+    q0 -> q_RPAREN [label="')'"];
+
+    // ── ':' → COLON | ASSIGN := ───────────────────────────────────────────────
+    q0         -> q_colon_st [label="':'"];
+    q_colon_st -> q_ASSIGN   [label="'='"];
+    q_colon_st -> q_COLON    [label="outro *", style=dashed];
+
+    // ── '<' → LT | LE (<=) | NEQ (<>) ────────────────────────────────────────
+    q0      -> q_lt_st [label="'<'"];
+    q_lt_st -> q_LE    [label="'='"];
+    q_lt_st -> q_NEQ   [label="'>'"];
+    q_lt_st -> q_LT    [label="outro *", style=dashed];
+
+    // ── '>' → GT | GE (>=) ────────────────────────────────────────────────────
+    q0      -> q_gt_st [label="'>'"];
+    q_gt_st -> q_GE    [label="'='"];
+    q_gt_st -> q_GT    [label="outro *", style=dashed];
+
+    // ── '==' ou ERRO ('=' isolado não é token válido na linguagem BRL) ────────
+    q0      -> q_eq_st    [label="'='"];
+    q_eq_st -> q_EQUAL    [label="'='"];
+    q_eq_st -> ERRO_LEXICO [label="outro\n('=' isolado)"];
+
+    // ── '&&' ou ERRO ('&' isolado não é token válido na linguagem BRL) ────────
+    q0       -> q_amp_st   [label="'&'"];
+    q_amp_st -> q_AND      [label="'&'"];
+    q_amp_st -> ERRO_LEXICO [label="outro\n('&' isolado)"];
+
+    // ── EOF em q0 (fim normal do arquivo) ─────────────────────────────────────
+    q0 -> q_EOF [label="EOF"];
+
+    // ── Caractere Inválido ────────────────────────────────────────────────────
+    //    Qualquer char fora do conjunto permitido pela especificação BRL.
+    q0 -> ERRO_LEXICO [label="inválido\n(@, #, %, ...)"];
+}
