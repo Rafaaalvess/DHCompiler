@@ -4,29 +4,32 @@ import semantic.Symbol;
 import semantic.SymbolTable;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Gerador de codigo para arquitetura 80x86 (MASM).
+ * Gerador de codigo para arquitetura 80x86 (MASM), modo real DOS.
+ * Requer processador 80386+ (diretiva .386 emitida no arquivo ASM).
  *
  * Tipos e tamanhos conforme especificacao:
- *   inteiro  -> DD ? (4 bytes, acesso via WORD PTR)
- *   real     -> DD ? (4 bytes, acesso via WORD PTR)
- *   logico   -> DB ? (1 byte, 0h=falso, FFh=verdadeiro)
+ *   inteiro  -> DD ? (4 bytes, acesso via DWORD PTR / EAX)
+ *   real     -> DD ? (4 bytes, acesso via DWORD PTR / EAX; sem FP)
+ *   logico   -> DB ? (1 byte, 0h=falso, FFh=verdadeiro; via BYTE PTR / AL)
  *   caractere-> DB 512 DUP(?) (512 bytes, terminado por '$')
  *
  * Convencao de registradores:
- *   AX  -- acumulador de expressoes numericas e logicas
- *   DX  -- ponteiro de strings (tipo caractere)
- *   BX, CX -- temporarios para operacoes binarias e sub-rotinas
- *   SI, DI -- ponteiros fonte/destino para copias de string
+ *   EAX -- acumulador de expressoes numericas e logicas
+ *   EBX -- operando direito temporario
+ *   DX  -- ponteiro de strings (tipo caractere, offset 16-bit)
  */
 public class CodeGenerator {
 
     private final String outputPath;
     private final List<String> dataEntries = new ArrayList<>();
     private final List<String> codeEntries = new ArrayList<>();
+    private static final int REAL_SCALE = 10000;
     private int labelCounter = 0;
     private int stringCounter = 0;
 
@@ -55,29 +58,29 @@ public class CodeGenerator {
     }
 
     // -------------------------------------------------------------------------
-    // Carga de valores — resultado em AX (ou DX para caractere)
+    // Carga de valores — resultado em EAX (ou DX para caractere)
     // -------------------------------------------------------------------------
 
     public void emitLoadInt(String value) {
-        emit("MOV AX, " + value);
+        emit("MOV EAX, " + value);
     }
 
     public void emitLoadReal(String value) {
-        int intVal = (int) Float.parseFloat(value);
-        emit("MOV AX, " + intVal);
+        BigDecimal scaled = new BigDecimal(value).multiply(BigDecimal.valueOf(REAL_SCALE));
+        emit("MOV EAX, " + scaled.setScale(0, RoundingMode.HALF_UP).intValue());
     }
 
     /**
-     * Carrega variavel em AX conforme o tipo:
-     *   inteiro/real -> MOV AX, WORD PTR [name]
-     *   logico       -> XOR AH, AH + MOV AL, BYTE PTR [name]  (AX = 0 ou 00FFh)
+     * Carrega variavel em EAX conforme o tipo:
+     *   inteiro/real -> MOV EAX, DWORD PTR [name]
+     *   logico       -> XOR EAX, EAX + MOV AL, BYTE PTR [name]  (EAX = 0 ou 000000FFh)
      */
     public void emitLoadVar(String name, String type) {
         if (type.equals(Symbol.LOGICO)) {
-            emit("XOR AH, AH");
+            emit("XOR EAX, EAX");
             emit("MOV AL, BYTE PTR [" + name + "]");
         } else {
-            emit("MOV AX, WORD PTR [" + name + "]");
+            emit("MOV EAX, DWORD PTR [" + name + "]");
         }
     }
 
@@ -93,14 +96,14 @@ public class CodeGenerator {
         emit("LEA DX, " + label);
     }
 
-    /** Verdadeiro: FFh (1 byte conforme spec). */
+    /** Verdadeiro: EAX = 000000FFh (1 byte armazenado via AL). */
     public void emitLoadTrue() {
-        emit("MOV AX, 0FFh");
+        emit("MOV EAX, 0FFh");
     }
 
-    /** Falso: 0. */
+    /** Falso: EAX = 0. */
     public void emitLoadFalse() {
-        emit("MOV AX, 0");
+        emit("MOV EAX, 0");
     }
 
     // -------------------------------------------------------------------------
@@ -108,37 +111,59 @@ public class CodeGenerator {
     // -------------------------------------------------------------------------
 
     public void emitPushAX() {
-        emit("PUSH AX");
+        emit("PUSH EAX");
     }
 
     public void emitUnaryNeg() {
-        emit("NEG AX");
+        emit("NEG EAX");
     }
 
-    /** NOT logico: inverte entre 0 e FFh. */
+    /** NOT logico: inverte entre 0 e 000000FFh preservando zeros nos bits 8-31. */
     public void emitUnaryNot() {
         emit("XOR AL, 0FFh");
-        emit("XOR AH, AH");
+        emit("AND EAX, 0FFh");
     }
 
     // -------------------------------------------------------------------------
     // Operacoes binarias aritmeticas e logicas
-    // Pressupoe que o operando esquerdo foi salvo com PUSH AX antes de
-    // avaliar o operando direito (que agora esta em AX).
+    // Pressupoe que o operando esquerdo foi salvo com PUSH EAX antes de
+    // avaliar o operando direito (que agora esta em EAX).
     // -------------------------------------------------------------------------
 
-    public void emitBinaryOp(String op) {
-        emit("MOV BX, AX");
-        emit("POP AX");
+    public void emitBinaryOp(String op, String leftType, String rightType, String resultType) {
+        emit("MOV EBX, EAX");
+        emit("POP EAX");
+        if (resultType.equals(Symbol.REAL)) {
+            emitNumericPromotion(leftType, rightType);
+        }
         switch (op) {
-            case "+":   emit("ADD AX, BX");                               break;
-            case "-":   emit("SUB AX, BX");                               break;
-            case "*":   emit("IMUL BX");                                  break;
+            case "+":   emit("ADD EAX, EBX");                                break;
+            case "-":   emit("SUB EAX, EBX");                                break;
+            case "*":
+                emit("IMUL EBX");
+                if (resultType.equals(Symbol.REAL)) {
+                    emit("MOV EBX, " + REAL_SCALE);
+                    emit("IDIV EBX");
+                }
+                break;
             case "/":
-            case "div": emit("CWD"); emit("IDIV BX");                     break;
-            case "mod": emit("CWD"); emit("IDIV BX"); emit("MOV AX, DX"); break;
-            case "&&":  emit("AND AX, BX");                               break;
-            case "ou":  emit("OR AX, BX");                                break;
+                if (resultType.equals(Symbol.REAL)) emit("IMUL EAX, " + REAL_SCALE);
+                emit("CDQ");
+                emit("IDIV EBX");
+                break;
+            case "div": emit("CDQ"); emit("IDIV EBX");                       break;
+            case "mod": emit("CDQ"); emit("IDIV EBX"); emit("MOV EAX, EDX"); break;
+            case "&&":  emit("AND EAX, EBX");                                break;
+            case "ou":  emit("OR EAX, EBX");                                 break;
+        }
+    }
+
+    private void emitNumericPromotion(String leftType, String rightType) {
+        if (leftType.equals(Symbol.INTEIRO)) {
+            emit("IMUL EAX, " + REAL_SCALE);
+        }
+        if (rightType.equals(Symbol.INTEIRO)) {
+            emit("IMUL EBX, " + REAL_SCALE);
         }
     }
 
@@ -146,18 +171,45 @@ public class CodeGenerator {
     // Operadores relacionais — resultado 0h (falso) ou FFh (verdadeiro)
     // -------------------------------------------------------------------------
 
-    public void emitRelop(String op) {
+    public void emitRelop(String op, String leftType, String rightType) {
         String labelTrue = newLabel();
         String labelEnd  = newLabel();
-        emit("MOV BX, AX");
-        emit("POP AX");
-        emit("CMP AX, BX");
+        emit("MOV EBX, EAX");
+        emit("POP EAX");
+        if (leftType.equals(Symbol.REAL) || rightType.equals(Symbol.REAL)) {
+            emitNumericPromotion(leftType, rightType);
+        }
+        emit("CMP EAX, EBX");
         emit(jumpFor(op) + " " + labelTrue);
-        emit("MOV AX, 0");
+        emit("MOV EAX, 0");
         emit("JMP " + labelEnd);
         emitLbl(labelTrue);
-        emit("MOV AX, 0FFh");
+        emit("MOV EAX, 0FFh");
         emitLbl(labelEnd);
+    }
+
+    public void emitPushDX() {
+        emit("PUSH DX");
+    }
+
+    public void emitStringConcat() {
+        String label = "_STR" + (stringCounter++);
+        dataEntries.add(String.format("%-16s DB 512 DUP(?)", label));
+        emit("MOV BX, DX");
+        emit("POP SI");
+        emit("LEA DI, [" + label + "]");
+        emit("MOV DX, BX");
+        emit("CALL STRCAT_PROC");
+        emit("LEA DX, [" + label + "]");
+    }
+
+    public void emitStringEqual() {
+        emit("MOV BX, DX");
+        emit("POP SI");
+        emit("MOV DI, BX");
+        emit("CALL STRCMP_PROC");
+        emit("XOR EAX, EAX");
+        emit("MOV AL, BL");
     }
 
     private String jumpFor(String op) {
@@ -177,16 +229,20 @@ public class CodeGenerator {
     // -------------------------------------------------------------------------
 
     /**
-     * Armazena AX na variavel conforme o tipo:
-     *   inteiro/real -> MOV WORD PTR [name], AX
+     * Armazena EAX na variavel conforme o tipo:
+     *   inteiro/real -> MOV DWORD PTR [name], EAX
      *   logico       -> MOV BYTE PTR [name], AL
      */
     public void genStore(String varName, String type) {
         if (type.equals(Symbol.LOGICO)) {
             emit("MOV BYTE PTR [" + varName + "], AL");
         } else {
-            emit("MOV WORD PTR [" + varName + "], AX");
+            emit("MOV DWORD PTR [" + varName + "], EAX");
         }
+    }
+
+    public void emitIntToReal() {
+        emit("IMUL EAX, " + REAL_SCALE);
     }
 
     /** Copia string de DX para o buffer da variavel caractere. */
@@ -201,7 +257,7 @@ public class CodeGenerator {
     // -------------------------------------------------------------------------
 
     public void emitCmpAX0() {
-        emit("CMP AX, 0");
+        emit("CMP EAX, 0");
     }
 
     public void emitJE(String label) {
@@ -227,9 +283,13 @@ public class CodeGenerator {
         } else if (type.equals(Symbol.LOGICO)) {
             emit("CALL READ_INT");
             emit("MOV BYTE PTR [" + varName + "], AL");
+        } else if (type.equals(Symbol.REAL)) {
+            emit("CALL READ_INT");
+            emit("IMUL EAX, " + REAL_SCALE);
+            emit("MOV DWORD PTR [" + varName + "], EAX");
         } else {
             emit("CALL READ_INT");
-            emit("MOV WORD PTR [" + varName + "], AX");
+            emit("MOV DWORD PTR [" + varName + "], EAX");
         }
     }
 
@@ -240,7 +300,7 @@ public class CodeGenerator {
         } else if (type.equals(Symbol.LOGICO)) {
             String labelTrue = newLabel();
             String labelEnd  = newLabel();
-            emit("CMP AX, 0FFh");
+            emit("CMP EAX, 0FFh");
             emit("JE  " + labelTrue);
             emit("LEA DX, STR_FALSO");
             emit("JMP " + labelEnd);
@@ -250,7 +310,8 @@ public class CodeGenerator {
             emit("MOV AH, 09h");
             emit("INT 21h");
         } else {
-            emit("CALL PRINT_INT");
+            if (type.equals(Symbol.REAL)) emit("CALL PRINT_REAL");
+            else emit("CALL PRINT_INT");
         }
     }
 
@@ -260,6 +321,7 @@ public class CodeGenerator {
 
     public void writeFile(SymbolTable symbolTable) throws IOException {
         AsmWriter w = new AsmWriter(outputPath);
+        w.writeRaw(".386");
         w.writeComment("Compilador BRL -- gerado automaticamente");
         w.writeBlankLine();
         writeStackSegment(w);
@@ -295,7 +357,7 @@ public class CodeGenerator {
             case Symbol.REAL:      return "DD ?";
             case Symbol.LOGICO:    return "DB ?";
             case Symbol.CARACTERE: return "DB 512 DUP(?)";
-            default:               return "DW ?";
+            default:               return "DD ?";
         }
     }
 
@@ -319,15 +381,65 @@ public class CodeGenerator {
 
         writePrintInt(w);
         w.writeBlankLine();
+        writePrintReal(w);
+        w.writeBlankLine();
         writeReadInt(w);
         w.writeBlankLine();
         writeReadStr(w);
         w.writeBlankLine();
         writeStrCpy(w);
         w.writeBlankLine();
+        writeStrCat(w);
+        w.writeBlankLine();
+        writeStrCmp(w);
+        w.writeBlankLine();
 
         w.writeRaw("CSEG    ENDS");
         w.writeLine("END strt");
+    }
+
+    private void writePrintReal(AsmWriter w) {
+        w.writeComment("PRINT_REAL: imprime EAX como ponto fixo com 4 casas decimais");
+        w.writeRaw("PRINT_REAL PROC");
+        w.writeLine("PUSH EBX");
+        w.writeLine("PUSH EDX");
+        w.writeLine("CMP EAX, 0");
+        w.writeLine("JGE PR_REAL_POS");
+        w.writeLine("PUSH EAX");
+        w.writeLine("MOV DL, '-'");
+        w.writeLine("MOV AH, 02h");
+        w.writeLine("INT 21h");
+        w.writeLine("POP EAX");
+        w.writeLine("NEG EAX");
+        w.writeRaw("PR_REAL_POS:");
+        w.writeLine("XOR EDX, EDX");
+        w.writeLine("MOV EBX, " + REAL_SCALE);
+        w.writeLine("DIV EBX");
+        w.writeLine("PUSH EDX");
+        w.writeLine("CALL PRINT_INT");
+        w.writeLine("MOV DL, '.'");
+        w.writeLine("MOV AH, 02h");
+        w.writeLine("INT 21h");
+        w.writeLine("POP EAX");
+        writeRealDigit(w, 1000);
+        writeRealDigit(w, 100);
+        writeRealDigit(w, 10);
+        writeRealDigit(w, 1);
+        w.writeLine("POP EDX");
+        w.writeLine("POP EBX");
+        w.writeLine("RET");
+        w.writeRaw("PRINT_REAL ENDP");
+    }
+
+    private void writeRealDigit(AsmWriter w, int divisor) {
+        w.writeLine("XOR EDX, EDX");
+        w.writeLine("MOV EBX, " + divisor);
+        w.writeLine("DIV EBX");
+        w.writeLine("ADD AL, '0'");
+        w.writeLine("MOV DL, AL");
+        w.writeLine("MOV AH, 02h");
+        w.writeLine("INT 21h");
+        w.writeLine("MOV EAX, EDX");
     }
 
     // -------------------------------------------------------------------------
@@ -335,49 +447,49 @@ public class CodeGenerator {
     // -------------------------------------------------------------------------
 
     private void writePrintInt(AsmWriter w) {
-        w.writeComment("PRINT_INT: imprime AX como decimal com sinal");
+        w.writeComment("PRINT_INT: imprime EAX como decimal com sinal");
         w.writeRaw("PRINT_INT PROC");
-        w.writeLine("PUSH BX");
-        w.writeLine("PUSH CX");
-        w.writeLine("PUSH DX");
-        w.writeLine("CMP AX, 0");
+        w.writeLine("PUSH EBX");
+        w.writeLine("PUSH ECX");
+        w.writeLine("PUSH EDX");
+        w.writeLine("CMP EAX, 0");
         w.writeLine("JGE PRNT_POS");
-        w.writeLine("PUSH AX");
+        w.writeLine("PUSH EAX");
         w.writeLine("MOV DL, '-'");
         w.writeLine("MOV AH, 02h");
         w.writeLine("INT 21h");
-        w.writeLine("POP AX");
-        w.writeLine("NEG AX");
+        w.writeLine("POP EAX");
+        w.writeLine("NEG EAX");
         w.writeRaw("PRNT_POS:");
         w.writeLine("MOV CX, 0");
-        w.writeLine("MOV BX, 10");
+        w.writeLine("MOV EBX, 10");
         w.writeRaw("PRNT_DIV:");
-        w.writeLine("MOV DX, 0");
-        w.writeLine("DIV BX");
-        w.writeLine("PUSH DX");
+        w.writeLine("XOR EDX, EDX");
+        w.writeLine("DIV EBX");
+        w.writeLine("PUSH EDX");
         w.writeLine("INC CX");
-        w.writeLine("CMP AX, 0");
+        w.writeLine("CMP EAX, 0");
         w.writeLine("JNE PRNT_DIV");
         w.writeRaw("PRNT_OUT:");
-        w.writeLine("POP DX");
+        w.writeLine("POP EDX");
         w.writeLine("ADD DL, '0'");
         w.writeLine("MOV AH, 02h");
         w.writeLine("INT 21h");
         w.writeLine("LOOP PRNT_OUT");
-        w.writeLine("POP DX");
-        w.writeLine("POP CX");
-        w.writeLine("POP BX");
+        w.writeLine("POP EDX");
+        w.writeLine("POP ECX");
+        w.writeLine("POP EBX");
         w.writeLine("RET");
         w.writeRaw("PRINT_INT ENDP");
     }
 
     private void writeReadInt(AsmWriter w) {
-        w.writeComment("READ_INT: le inteiro do teclado, retorna em AX");
+        w.writeComment("READ_INT: le inteiro do teclado, retorna em EAX");
         w.writeRaw("READ_INT PROC");
-        w.writeLine("PUSH BX");
-        w.writeLine("PUSH CX");
-        w.writeLine("PUSH DX");
-        w.writeLine("MOV BX, 0");
+        w.writeLine("PUSH EBX");
+        w.writeLine("PUSH ECX");
+        w.writeLine("PUSH EDX");
+        w.writeLine("XOR EBX, EBX");
         w.writeRaw("READ_CHR:");
         w.writeLine("MOV AH, 01h");
         w.writeLine("INT 21h");
@@ -387,20 +499,15 @@ public class CodeGenerator {
         w.writeLine("JL  READ_END");
         w.writeLine("CMP AL, '9'");
         w.writeLine("JG  READ_END");
-        w.writeLine("AND AX, 00FFh");
-        w.writeLine("PUSH AX");
-        w.writeLine("MOV AX, BX");
-        w.writeLine("MOV CX, 10");
-        w.writeLine("MUL CX");
-        w.writeLine("POP CX");
-        w.writeLine("ADD AX, CX");
-        w.writeLine("MOV BX, AX");
+        w.writeLine("AND EAX, 0Fh");
+        w.writeLine("IMUL EBX, EBX, 10");
+        w.writeLine("ADD EBX, EAX");
         w.writeLine("JMP READ_CHR");
         w.writeRaw("READ_END:");
-        w.writeLine("MOV AX, BX");
-        w.writeLine("POP DX");
-        w.writeLine("POP CX");
-        w.writeLine("POP BX");
+        w.writeLine("MOV EAX, EBX");
+        w.writeLine("POP EDX");
+        w.writeLine("POP ECX");
+        w.writeLine("POP EBX");
         w.writeLine("RET");
         w.writeRaw("READ_INT ENDP");
     }
@@ -444,5 +551,63 @@ public class CodeGenerator {
         w.writeLine("POP AX");
         w.writeLine("RET");
         w.writeRaw("STRCPY_PROC ENDP");
+    }
+
+    private void writeStrCat(AsmWriter w) {
+        w.writeComment("STRCAT_PROC: concatena SI e DX em DI, terminando com '$'");
+        w.writeRaw("STRCAT_PROC PROC");
+        w.writeLine("PUSH AX");
+        w.writeLine("PUSH SI");
+        w.writeLine("PUSH DI");
+        w.writeRaw("STRCAT_LEFT:");
+        w.writeLine("MOV AL, [SI]");
+        w.writeLine("CMP AL, '$'");
+        w.writeLine("JE  STRCAT_RIGHT_PREP");
+        w.writeLine("MOV [DI], AL");
+        w.writeLine("INC SI");
+        w.writeLine("INC DI");
+        w.writeLine("JMP STRCAT_LEFT");
+        w.writeRaw("STRCAT_RIGHT_PREP:");
+        w.writeLine("MOV SI, DX");
+        w.writeRaw("STRCAT_RIGHT:");
+        w.writeLine("MOV AL, [SI]");
+        w.writeLine("MOV [DI], AL");
+        w.writeLine("INC SI");
+        w.writeLine("INC DI");
+        w.writeLine("CMP AL, '$'");
+        w.writeLine("JNE STRCAT_RIGHT");
+        w.writeLine("POP DI");
+        w.writeLine("POP SI");
+        w.writeLine("POP AX");
+        w.writeLine("RET");
+        w.writeRaw("STRCAT_PROC ENDP");
+    }
+
+    private void writeStrCmp(AsmWriter w) {
+        w.writeComment("STRCMP_PROC: compara SI e DI; BL=FFh se iguais, BL=00h se diferentes");
+        w.writeRaw("STRCMP_PROC PROC");
+        w.writeLine("PUSH AX");
+        w.writeLine("PUSH SI");
+        w.writeLine("PUSH DI");
+        w.writeRaw("STRCMP_LOOP:");
+        w.writeLine("MOV AL, [SI]");
+        w.writeLine("CMP AL, [DI]");
+        w.writeLine("JNE STRCMP_FALSE");
+        w.writeLine("CMP AL, '$'");
+        w.writeLine("JE  STRCMP_TRUE");
+        w.writeLine("INC SI");
+        w.writeLine("INC DI");
+        w.writeLine("JMP STRCMP_LOOP");
+        w.writeRaw("STRCMP_TRUE:");
+        w.writeLine("MOV BL, 0FFh");
+        w.writeLine("JMP STRCMP_END");
+        w.writeRaw("STRCMP_FALSE:");
+        w.writeLine("MOV BL, 0");
+        w.writeRaw("STRCMP_END:");
+        w.writeLine("POP DI");
+        w.writeLine("POP SI");
+        w.writeLine("POP AX");
+        w.writeLine("RET");
+        w.writeRaw("STRCMP_PROC ENDP");
     }
 }

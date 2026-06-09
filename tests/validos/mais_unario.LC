@@ -1,0 +1,6 @@
+inicio maisunario;
+  x : inteiro;
+  y : real;
+  x := +5;
+  y := +3.5;
+fim

@@ -140,6 +140,9 @@ public class Parser {
             if (target.type.equals(Symbol.CARACTERE)) {
                 codegen.genStrCopy(target.name);
             } else {
+                if (target.type.equals(Symbol.REAL) && expType.equals(Symbol.INTEIRO)) {
+                    codegen.emitIntToReal();
+                }
                 codegen.genStore(target.name, target.type);
             }
         }
@@ -239,13 +242,23 @@ public class Parser {
     private String parseExp() {
         String type = parseExpAdd();
         while (isRelop()) {
-            if (codegen != null) codegen.emitPushAX();
+            String leftType = type;
+            if (codegen != null) {
+                if (leftType.equals(Symbol.CARACTERE)) codegen.emitPushDX();
+                else codegen.emitPushAX();
+            }
             String op = current.type.display();
             int opLine = current.line;
             eatRelop();
             String rightType = parseExpAdd();
-            if (codegen != null) codegen.emitRelop(op);
-            type = semantic.inferBinaryType(type, op, rightType, opLine);
+            type = semantic.inferBinaryType(leftType, op, rightType, opLine);
+            if (codegen != null) {
+                if (leftType.equals(Symbol.CARACTERE) && rightType.equals(Symbol.CARACTERE)) {
+                    codegen.emitStringEqual();
+                } else {
+                    codegen.emitRelop(op, leftType, rightType);
+                }
+            }
         }
         return type;
     }
@@ -253,13 +266,23 @@ public class Parser {
     private String parseExpAdd() {
         String type = parseExpMul();
         while (check(TokenType.PLUS) || check(TokenType.MINUS) || check(TokenType.OU)) {
-            if (codegen != null) codegen.emitPushAX();
+            String leftType = type;
+            if (codegen != null) {
+                if (leftType.equals(Symbol.CARACTERE)) codegen.emitPushDX();
+                else codegen.emitPushAX();
+            }
             String op = current.type.display();
             int opLine = current.line;
             eat(current.type);
             String rightType = parseExpMul();
-            if (codegen != null) codegen.emitBinaryOp(op);
-            type = semantic.inferBinaryType(type, op, rightType, opLine);
+            type = semantic.inferBinaryType(leftType, op, rightType, opLine);
+            if (codegen != null) {
+                if (leftType.equals(Symbol.CARACTERE) && rightType.equals(Symbol.CARACTERE)) {
+                    codegen.emitStringConcat();
+                } else {
+                    codegen.emitBinaryOp(op, leftType, rightType, type);
+                }
+            }
         }
         return type;
     }
@@ -269,13 +292,14 @@ public class Parser {
         while (check(TokenType.STAR) || check(TokenType.SLASH) ||
                check(TokenType.DIV)  || check(TokenType.MOD)   ||
                check(TokenType.AND)) {
+            String leftType = type;
             if (codegen != null) codegen.emitPushAX();
             String op = current.type.display();
             int opLine = current.line;
             eat(current.type);
             String rightType = parseExpUnario();
-            if (codegen != null) codegen.emitBinaryOp(op);
-            type = semantic.inferBinaryType(type, op, rightType, opLine);
+            type = semantic.inferBinaryType(leftType, op, rightType, opLine);
+            if (codegen != null) codegen.emitBinaryOp(op, leftType, rightType, type);
         }
         return type;
     }
@@ -300,6 +324,15 @@ public class Parser {
                     "operador '-' requer operando numerico, encontrado '" + type + "'");
             }
             if (codegen != null) codegen.emitUnaryNeg();
+            return type;
+        } else if (check(TokenType.PLUS)) {
+            int opLine = current.line;
+            eat(TokenType.PLUS);
+            String type = parseExpUnario();
+            if (!type.equals(Symbol.INTEIRO) && !type.equals(Symbol.REAL)) {
+                throw new SemanticException(opLine,
+                    "operador '+' requer operando numerico, encontrado '" + type + "'");
+            }
             return type;
         } else {
             return parsePrimario();

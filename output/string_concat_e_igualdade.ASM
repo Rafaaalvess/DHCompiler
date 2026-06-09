@@ -6,13 +6,14 @@ SSEG    SEGMENT STACK
 SSEG    ENDS
 
 DSEG    SEGMENT DATA
-        a               DD ?
-        b               DD ?
-        c               DD ?
-        x               DD ?
-        y               DD ?
-        nome            DB 512 DUP(?)
-        ativo           DB ?
+        a               DB 512 DUP(?)
+        b               DB 512 DUP(?)
+        c               DB 512 DUP(?)
+        ok              DB ?
+        _STR0            DB "Dom", '$'
+        _STR1            DB "Helder", '$'
+        _STR2            DB 512 DUP(?)
+        _STR3            DB "DomHelder", '$'
         STR_VERDADEIRO  DB "verdadeiro$"
         STR_FALSO       DB "falso$"
 DSEG    ENDS
@@ -24,6 +25,36 @@ strt:
         MOV AX, DSEG
         MOV DS, AX
 
+        LEA DX, _STR0
+        MOV SI, DX
+        LEA DI, [a]
+        CALL STRCPY_PROC
+        LEA DX, _STR1
+        MOV SI, DX
+        LEA DI, [b]
+        CALL STRCPY_PROC
+        LEA DX, [a]
+        PUSH DX
+        LEA DX, [b]
+        MOV BX, DX
+        POP SI
+        LEA DI, [_STR2]
+        MOV DX, BX
+        CALL STRCAT_PROC
+        LEA DX, [_STR2]
+        MOV SI, DX
+        LEA DI, [c]
+        CALL STRCPY_PROC
+        LEA DX, [c]
+        PUSH DX
+        LEA DX, _STR3
+        MOV BX, DX
+        POP SI
+        MOV DI, BX
+        CALL STRCMP_PROC
+        XOR EAX, EAX
+        MOV AL, BL
+        MOV BYTE PTR [ok], AL
 
         MOV AH, 4Ch
         INT 21h

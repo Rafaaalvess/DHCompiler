@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Compilador BRL — AFD e Gramática Formal</title>
+  <style>
+    body {
+      font-family: "Times New Roman", serif;
+      font-size: 12pt;
+      margin: 2.5cm 2.5cm 2.5cm 3cm;
+      color: #000;
+    }
+    h1 {
+      font-size: 16pt;
+      text-align: center;
+      margin-bottom: 4pt;
+    }
+    h2 {
+      font-size: 13pt;
+      margin-top: 24pt;
+      border-bottom: 1px solid #000;
+      padding-bottom: 3pt;
+    }
+    h3 {
+      font-size: 12pt;
+      margin-top: 14pt;
+    }
+    .header-block {
+      text-align: center;
+      margin-bottom: 24pt;
+    }
+    .header-block p { margin: 2pt 0; }
+    .separator {
+      border: none;
+      border-top: 2px solid #000;
+      margin: 16pt 0;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 8pt;
+      font-size: 11pt;
+    }
+    th, td {
+      border: 1px solid #555;
+      padding: 5pt 8pt;
+      vertical-align: top;
+    }
+    th {
+      background: #e0e0e0;
+      font-weight: bold;
+      text-align: left;
+    }
+    pre {
+      font-family: "Courier New", monospace;
+      font-size: 10.5pt;
+      background: #f5f5f5;
+      border: 1px solid #ccc;
+      padding: 10pt 14pt;
+      margin: 8pt 0;
+      line-height: 1.5;
+      white-space: pre;
+    }
+    .afd-image {
+      text-align: center;
+      margin: 14pt 0;
+    }
+    .afd-image img {
+      max-width: 100%;
+      height: auto;
+    }
+    .caption {
+      text-align: center;
+      font-size: 10pt;
+      font-style: italic;
+      margin-top: 4pt;
+    }
+    .note {
+      font-size: 10pt;
+      font-style: italic;
+      margin-top: 6pt;
+    }
+    @media print {
+      body { margin: 2cm 2cm 2cm 2.5cm; }
+      pre  { page-break-inside: avoid; }
+      h2   { page-break-after: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Cabeçalho -->
+<div class="header-block">
+  <h1>Compilador BRL — Documentação Técnica</h1>
+  <p><strong>AFD e Gramática Formal da Linguagem BRL</strong></p>
+  <p>Trabalho Prático de Compiladores — Ciência da Computação</p>
+  <p>Faculdade Dom Helder | Professor: Prof. Dr. Marcos W. Rodrigues</p>
+  <p>Integrantes: Rafael De Andrade Alves &nbsp;|&nbsp; Vinicius Barros Marinho</p>
+</div>
+
+<hr class="separator">
+
+<!-- ===== PARTE 1: AFD ===== -->
+<h2>1. Autômato Finito Determinístico (AFD)</h2>
+
+<p>
+  O AFD abaixo descreve o analisador léxico da linguagem BRL.
+  Cada caminho do estado inicial <code>q0</code> até um estado de aceitação
+  corresponde a um tipo de token reconhecido. O estado <code>ERRO_LEXICO</code>
+  é alcançado para qualquer caractere que não pertença ao conjunto válido da linguagem.
+</p>
+
+<div class="afd-image">
+  <img src="afd_brl.png" alt="Diagrama AFD da linguagem BRL">
+  <p class="caption">Figura 1 — AFD completo da linguagem BRL (gerado com Graphviz)</p>
+</div>
+
+<h3>1.1 Estados do AFD</h3>
+
+<table>
+  <tr>
+    <th>Categoria</th>
+    <th>Estado(s)</th>
+    <th>Descrição</th>
+  </tr>
+  <tr>
+    <td>Inicial</td>
+    <td><code>q0</code></td>
+    <td>Estado inicial — despacha para o estado correto conforme o 1.º caractere</td>
+  </tr>
+  <tr>
+    <td>Identificadores</td>
+    <td><code>q_id_body</code> → <code>q_ID</code></td>
+    <td>Reconhece identificadores e palavras reservadas</td>
+  </tr>
+  <tr>
+    <td>Constante inteira</td>
+    <td><code>q_int_body</code> → <code>q_INT</code></td>
+    <td>Sequência de dígitos <code>[0-9]+</code></td>
+  </tr>
+  <tr>
+    <td>Constante real</td>
+    <td><code>q_dot</code> → <code>q_real_body</code> → <code>q_REAL</code></td>
+    <td>Dígitos, ponto, dígitos: <code>[0-9]+'.'[0-9]+</code></td>
+  </tr>
+  <tr>
+    <td>String literal</td>
+    <td><code>q_str_body</code> → <code>q_STR</code></td>
+    <td>Conteúdo entre aspas duplas; LF/EOF → erro</td>
+  </tr>
+  <tr>
+    <td>Comentário</td>
+    <td><code>q_fslash</code> → <code>q_cmt_body</code> → <code>q_cmt_star</code> → <code>q0</code></td>
+    <td>Bloco <code>/* ... */</code>; EOF sem fechar → erro</td>
+  </tr>
+  <tr>
+    <td>Operadores compostos</td>
+    <td><code>q_colon_st</code>, <code>q_lt_st</code>, <code>q_gt_st</code>, <code>q_eq_st</code>, <code>q_amp_st</code></td>
+    <td>Lookahead de 1 char para <code>:=</code>, <code>&lt;&gt;</code>, <code>&lt;=</code>, <code>&gt;=</code>, <code>==</code>, <code>&amp;&amp;</code></td>
+  </tr>
+  <tr>
+    <td>Aceitação (tokens)</td>
+    <td><code>q_ID</code>, <code>q_INT</code>, <code>q_REAL</code>, <code>q_STR</code>, <code>q_PLUS</code>, <code>q_MINUS</code>, <code>q_STAR</code>, <code>q_SLASH</code>, <code>q_SEMI</code>, <code>q_COMMA</code>, <code>q_LPAREN</code>, <code>q_RPAREN</code>, <code>q_COLON</code>, <code>q_ASSIGN</code>, <code>q_AND</code>, <code>q_LT</code>, <code>q_GT</code>, <code>q_LE</code>, <code>q_GE</code>, <code>q_NEQ</code>, <code>q_EQUAL</code>, <code>q_EOF</code></td>
+    <td>22 estados de aceitação — um por tipo de token</td>
+  </tr>
+  <tr>
+    <td>Erro</td>
+    <td><code>ERRO_LEXICO</code></td>
+    <td>Caractere inválido ou sequência não reconhecida</td>
+  </tr>
+</table>
+
+<h3>1.2 Palavras Reservadas (19)</h3>
+<p>
+  Reconhecidas a partir do estado <code>q_ID</code> por tabela hash O(1):
+  <code>inteiro</code>, <code>real</code>, <code>logico</code>, <code>caractere</code>,
+  <code>se</code>, <code>entao</code>, <code>senao</code>,
+  <code>enquanto</code>, <code>faca</code>,
+  <code>inicio</code>, <code>fim</code>,
+  <code>leia</code>, <code>escreva</code>,
+  <code>ou</code>, <code>div</code>, <code>mod</code>,
+  <code>verdadeiro</code>, <code>falso</code>, <code>not</code>.
+</p>
+
+<hr class="separator">
+
+<!-- ===== PARTE 2: GRAMÁTICA ===== -->
+<h2>2. Gramática Formal da Linguagem BRL</h2>
+
+<p>
+  A gramática da linguagem BRL é uma <strong>gramática livre de contexto LL(1)</strong>,
+  implementada por descida recursiva com lookahead de 1 token.
+  A notação utilizada é <strong>EBNF</strong> (Extended Backus-Naur Form):
+  <code>{ X }</code> indica zero ou mais repetições de X;
+  <code>[ X ]</code> indica X opcional;
+  <code>|</code> indica alternativa.
+</p>
+
+<h3>2.1 Gramática EBNF Completa</h3>
+
+<pre>
+(* Estrutura do programa *)
+programa    → 'inicio' ID ';' declaracoes instrucoes 'fim'
+
+(* Declarações de variáveis *)
+declaracoes → { declaracao }
+declaracao  → id_list ':' tipo ';'
+id_list     → ID { ',' ID }
+tipo        → 'inteiro' | 'real' | 'logico' | 'caractere'
+
+(* Instruções *)
+instrucoes  → { instrucao }
+instrucao   → atribuicao | se | leia | escreva | enquanto
+
+atribuicao  → ID ':=' exp ';'
+
+se          → 'se' exp 'entao' 'inicio' instrucoes 'fim'
+              [ 'senao' 'inicio' instrucoes 'fim' ]
+
+leia        → 'leia' '(' ID { ',' ID } ')' ';'
+
+escreva     → 'escreva' '(' exp ')' ';'
+
+enquanto    → 'enquanto' exp 'faca' 'inicio' instrucoes 'fim'
+
+(* Expressões — hierarquia de precedência crescente *)
+exp         → exp_add { RELOP exp_add }
+RELOP       → '==' | '&lt;&gt;' | '&lt;' | '&gt;' | '&lt;=' | '&gt;='
+
+exp_add     → exp_mul { ADDOP exp_mul }
+ADDOP       → '+' | '-' | 'ou'
+
+exp_mul     → exp_unario { MULOP exp_unario }
+MULOP       → '*' | '/' | 'div' | 'mod' | '&amp;&amp;'
+
+exp_unario  → 'not' exp_unario | '-' exp_unario | primario
+
+primario    → ID
+            | CONST_INT
+            | CONST_REAL
+            | CONST_STRING
+            | 'verdadeiro'
+            | 'falso'
+            | '(' exp ')'
+</pre>
+
+<h3>2.2 Propriedades da Gramática</h3>
+
+<table>
+  <tr>
+    <th>Propriedade</th>
+    <th>Status</th>
+    <th>Justificativa</th>
+  </tr>
+  <tr>
+    <td>Livre de contexto</td>
+    <td>✓ Sim</td>
+    <td>Todo lado esquerdo é exatamente um não-terminal</td>
+  </tr>
+  <tr>
+    <td>LL(1)</td>
+    <td>✓ Sim</td>
+    <td>Cada alternativa é determinada por 1 token de lookahead; sem conflito FIRST/FOLLOW</td>
+  </tr>
+  <tr>
+    <td>Sem ambiguidade</td>
+    <td>✓ Sim</td>
+    <td>Hierarquia de precedência encodeada nas produções; dangling-else resolvido de forma gulosa</td>
+  </tr>
+  <tr>
+    <td>Precedência correta</td>
+    <td>✓ Sim</td>
+    <td>Parênteses &gt; <code>not</code>/unário &gt; <code>* / div mod &amp;&amp;</code> &gt; <code>+ - ou</code> &gt; relacionais</td>
+  </tr>
+  <tr>
+    <td>Sem recursão à esquerda</td>
+    <td>✓ Sim</td>
+    <td>Repetições usam <code>while</code> (EBNF <code>{ }</code>) — compatível com descida recursiva</td>
+  </tr>
+</table>
+
+<h3>2.3 Tipos e Sistema de Tipos</h3>
+
+<table>
+  <tr>
+    <th>Tipo BRL</th>
+    <th>Tamanho (MASM)</th>
+    <th>Intervalo / Descrição</th>
+    <th>Representação Assembly</th>
+  </tr>
+  <tr>
+    <td><code>inteiro</code></td>
+    <td>4 bytes (DD)</td>
+    <td>−2³¹ a 2³¹−1 (acesso efetivo: 16 bits)</td>
+    <td><code>DD ?</code></td>
+  </tr>
+  <tr>
+    <td><code>real</code></td>
+    <td>4 bytes (DD)</td>
+    <td>7 dígitos de precisão (FP não implementado)</td>
+    <td><code>DD ?</code></td>
+  </tr>
+  <tr>
+    <td><code>logico</code></td>
+    <td>1 byte (DB)</td>
+    <td><code>0h</code> = falso, <code>FFh</code> = verdadeiro</td>
+    <td><code>DB ?</code></td>
+  </tr>
+  <tr>
+    <td><code>caractere</code></td>
+    <td>512 bytes</td>
+    <td>String terminada por <code>$</code> (INT 21h/AH=09h)</td>
+    <td><code>DB 512 DUP(?)</code></td>
+  </tr>
+</table>
+
+<h3>2.4 Regras de Compatibilidade de Tipos</h3>
+<table>
+  <tr>
+    <th>Operação</th>
+    <th>Operandos Válidos</th>
+    <th>Tipo Resultante</th>
+  </tr>
+  <tr>
+    <td>Aritmética (<code>+ - * / div mod</code>)</td>
+    <td><code>inteiro</code>, <code>real</code> (ou mistos)</td>
+    <td>Tipo dominante (<code>real</code> se houver real)</td>
+  </tr>
+  <tr>
+    <td><code>div</code>, <code>mod</code></td>
+    <td><code>inteiro</code> apenas</td>
+    <td><code>inteiro</code></td>
+  </tr>
+  <tr>
+    <td>Lógica (<code>&amp;&amp;</code>, <code>ou</code>, <code>not</code>)</td>
+    <td><code>logico</code></td>
+    <td><code>logico</code></td>
+  </tr>
+  <tr>
+    <td>Relacional (<code>== &lt;&gt; &lt; &gt; &lt;= &gt;=</code>)</td>
+    <td>Numéricos (<code>inteiro</code>, <code>real</code>) ou <code>logico</code> (apenas <code>==</code>)</td>
+    <td><code>logico</code></td>
+  </tr>
+  <tr>
+    <td>Atribuição (<code>:=</code>)</td>
+    <td>Tipos compatíveis; <code>inteiro → real</code> permitido</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td>Condição (<code>se</code>, <code>enquanto</code>)</td>
+    <td><code>logico</code> obrigatório</td>
+    <td>—</td>
+  </tr>
+</table>
+
+<hr class="separator">
+
+<p class="note">
+  Documento gerado em 09/06/2026 como parte do Trabalho Prático de Compiladores.<br>
+  <em>Para obter o PDF: abrir este arquivo no navegador → Arquivo → Imprimir → Salvar como PDF.</em>
+</p>
+
+</body>
+</html>

@@ -1,0 +1,8 @@
+inicio strconcat;
+  a, b, c : caractere;
+  ok : logico;
+  a := "Dom";
+  b := "Helder";
+  c := a + b;
+  ok := c == "DomHelder";
+fim

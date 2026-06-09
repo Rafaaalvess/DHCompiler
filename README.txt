@@ -23,11 +23,22 @@
 
 3. COMO EXECUTAR
 
-   java -cp bin main.Main <arquivo_fonte.LC> <saida.ASM>
+   Opcao A — via JAR (nome BRL conforme enunciado):
+     java -jar BRL.jar <arquivo_fonte.LC> <saida.ASM>
+
+   Opcao B — via wrapper BRL.bat (Windows):
+     BRL.bat <arquivo_fonte.LC> <saida.ASM>
+
+   Opcao C — via classpath (desenvolvimento):
+     java -cp bin main.Main <arquivo_fonte.LC> <saida.ASM>
+
+   Para gerar o BRL.jar a partir do codigo-fonte:
+     build_jar.bat
 
 4. EXEMPLO DE USO
 
-   java -cp bin main.Main programa.LC saida.ASM
+   java -jar BRL.jar programa.LC saida.ASM
+   BRL.bat programa.LC saida.ASM
 
    Em caso de sucesso:
      Compilacao concluida: saida.ASM
@@ -67,21 +78,25 @@
 
 7. MAPEAMENTO DE TIPOS BRL -> MASM
 
-   inteiro   -> DD ?             (4 bytes, acesso via WORD PTR)
-   real      -> DD ?             (4 bytes, acesso via WORD PTR)
-   logico    -> DB ?             (1 byte, 0h=falso, FFh=verdadeiro)
+   inteiro   -> DD ?             (4 bytes, acesso via DWORD PTR / EAX)
+   real      -> DD ?             (4 bytes, acesso via DWORD PTR / EAX)
+   logico    -> DB ?             (1 byte, 0h=falso, FFh=verdadeiro, via BYTE PTR / AL)
    caractere -> DB 512 DUP(?)   (512 bytes, terminado por '$')
+
+   O ASM gerado usa a diretiva .386 para operacoes de 32 bits (EAX, EBX,
+   DWORD PTR). O montador MASM e o ambiente de execucao (DOSBox/DOS real)
+   precisam suportar 80386+.
 
 --------------------------------------------------------
 
 8. LIMITACOES CONHECIDAS
 
-   - Tipo real nao suporta aritmetica de ponto flutuante; valores
-     reais sao tratados como inteiros (parte inteira apenas).
-   - Operacao de concatenacao de strings ('+' entre caractere)
-     e aceita semanticamente mas nao gera codigo de concatenacao;
-     use atribuicao direta para strings.
-   - Inteiros limitados ao intervalo 16 bits (-32768 a 32767)
-     devido ao uso de registradores AX/BX de 16 bits do 8086.
+   - Tipo real e representado internamente em ponto fixo com 4 casas
+     decimais dentro de DD. Literais, atribuicoes, comparacoes e operacoes
+     aritmeticas basicas preservam essa escala.
+   - A leitura de valores reais pelo teclado aceita entrada inteira e
+     converte para a escala interna.
+   - Operacao de concatenacao de strings ('+' entre caractere) e comparacao
+     de igualdade entre strings ('==') geram rotinas auxiliares no ASM.
 
 ========================================================

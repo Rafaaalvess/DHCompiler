@@ -1,4 +1,3 @@
-.386
 ; Compilador BRL -- gerado automaticamente
 
 SSEG    SEGMENT STACK
@@ -6,10 +5,8 @@ SSEG    SEGMENT STACK
 SSEG    ENDS
 
 DSEG    SEGMENT DATA
-        a               DD ?
-        b               DD ?
-        c               DB ?
-        d               DB 512 DUP(?)
+        l               DB ?
+        i               DD ?
         STR_VERDADEIRO  DB "verdadeiro$"
         STR_FALSO       DB "falso$"
 DSEG    ENDS
@@ -21,51 +18,55 @@ strt:
         MOV AX, DSEG
         MOV DS, AX
 
+        MOV AX, 0FFh
+        MOV BYTE PTR [l], AL
+        MOV AX, 10
+        MOV WORD PTR [i], AX
 
         MOV AH, 4Ch
         INT 21h
 
-; PRINT_INT: imprime EAX como decimal com sinal
+; PRINT_INT: imprime AX como decimal com sinal
 PRINT_INT PROC
-        PUSH EBX
-        PUSH ECX
-        PUSH EDX
-        CMP EAX, 0
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        CMP AX, 0
         JGE PRNT_POS
-        PUSH EAX
+        PUSH AX
         MOV DL, '-'
         MOV AH, 02h
         INT 21h
-        POP EAX
-        NEG EAX
+        POP AX
+        NEG AX
 PRNT_POS:
         MOV CX, 0
-        MOV EBX, 10
+        MOV BX, 10
 PRNT_DIV:
-        XOR EDX, EDX
-        DIV EBX
-        PUSH EDX
+        MOV DX, 0
+        DIV BX
+        PUSH DX
         INC CX
-        CMP EAX, 0
+        CMP AX, 0
         JNE PRNT_DIV
 PRNT_OUT:
-        POP EDX
+        POP DX
         ADD DL, '0'
         MOV AH, 02h
         INT 21h
         LOOP PRNT_OUT
-        POP EDX
-        POP ECX
-        POP EBX
+        POP DX
+        POP CX
+        POP BX
         RET
 PRINT_INT ENDP
 
-; READ_INT: le inteiro do teclado, retorna em EAX
+; READ_INT: le inteiro do teclado, retorna em AX
 READ_INT PROC
-        PUSH EBX
-        PUSH ECX
-        PUSH EDX
-        XOR EBX, EBX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        MOV BX, 0
 READ_CHR:
         MOV AH, 01h
         INT 21h
@@ -75,15 +76,20 @@ READ_CHR:
         JL  READ_END
         CMP AL, '9'
         JG  READ_END
-        AND EAX, 0Fh
-        IMUL EBX, EBX, 10
-        ADD EBX, EAX
+        AND AX, 00FFh
+        PUSH AX
+        MOV AX, BX
+        MOV CX, 10
+        MUL CX
+        POP CX
+        ADD AX, CX
+        MOV BX, AX
         JMP READ_CHR
 READ_END:
-        MOV EAX, EBX
-        POP EDX
-        POP ECX
-        POP EBX
+        MOV AX, BX
+        POP DX
+        POP CX
+        POP BX
         RET
 READ_INT ENDP
 

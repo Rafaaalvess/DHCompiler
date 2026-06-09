@@ -1,3 +1,4 @@
+.386
 ; Compilador BRL -- gerado automaticamente
 
 SSEG    SEGMENT STACK
@@ -18,84 +19,143 @@ strt:
         MOV AX, DSEG
         MOV DS, AX
 
-        MOV AX, 0FFh
+        MOV EAX, 0FFh
         MOV BYTE PTR [ativo], AL
-        XOR AH, AH
+        XOR EAX, EAX
         MOV AL, BYTE PTR [ativo]
-        CMP AX, 0
+        CMP EAX, 0
         JE  L0
-        MOV AX, 1
-        MOV WORD PTR [x], AX
+        MOV EAX, 1
+        MOV DWORD PTR [x], EAX
 L0:
 L2:
-        MOV AX, WORD PTR [x]
-        PUSH AX
-        MOV AX, 10
-        MOV BX, AX
-        POP AX
-        CMP AX, BX
+        MOV EAX, DWORD PTR [x]
+        PUSH EAX
+        MOV EAX, 10
+        MOV EBX, EAX
+        POP EAX
+        CMP EAX, EBX
         JL  L4
-        MOV AX, 0
+        MOV EAX, 0
         JMP L5
 L4:
-        MOV AX, 0FFh
+        MOV EAX, 0FFh
 L5:
-        CMP AX, 0
+        CMP EAX, 0
         JE  L3
-        MOV AX, WORD PTR [x]
-        PUSH AX
-        MOV AX, 1
-        MOV BX, AX
-        POP AX
-        ADD AX, BX
-        MOV WORD PTR [x], AX
+        MOV EAX, DWORD PTR [x]
+        PUSH EAX
+        MOV EAX, 1
+        MOV EBX, EAX
+        POP EAX
+        ADD EAX, EBX
+        MOV DWORD PTR [x], EAX
         JMP L2
 L3:
 
         MOV AH, 4Ch
         INT 21h
 
-; PRINT_INT: imprime AX como decimal com sinal
+; PRINT_INT: imprime EAX como decimal com sinal
 PRINT_INT PROC
-        PUSH BX
-        PUSH CX
-        PUSH DX
-        CMP AX, 0
+        PUSH EBX
+        PUSH ECX
+        PUSH EDX
+        CMP EAX, 0
         JGE PRNT_POS
-        PUSH AX
+        PUSH EAX
         MOV DL, '-'
         MOV AH, 02h
         INT 21h
-        POP AX
-        NEG AX
+        POP EAX
+        NEG EAX
 PRNT_POS:
         MOV CX, 0
-        MOV BX, 10
+        MOV EBX, 10
 PRNT_DIV:
-        MOV DX, 0
-        DIV BX
-        PUSH DX
+        XOR EDX, EDX
+        DIV EBX
+        PUSH EDX
         INC CX
-        CMP AX, 0
+        CMP EAX, 0
         JNE PRNT_DIV
 PRNT_OUT:
-        POP DX
+        POP EDX
         ADD DL, '0'
         MOV AH, 02h
         INT 21h
         LOOP PRNT_OUT
-        POP DX
-        POP CX
-        POP BX
+        POP EDX
+        POP ECX
+        POP EBX
         RET
 PRINT_INT ENDP
 
-; READ_INT: le inteiro do teclado, retorna em AX
+; PRINT_REAL: imprime EAX como ponto fixo com 4 casas decimais
+PRINT_REAL PROC
+        PUSH EBX
+        PUSH EDX
+        CMP EAX, 0
+        JGE PR_REAL_POS
+        PUSH EAX
+        MOV DL, '-'
+        MOV AH, 02h
+        INT 21h
+        POP EAX
+        NEG EAX
+PR_REAL_POS:
+        XOR EDX, EDX
+        MOV EBX, 10000
+        DIV EBX
+        PUSH EDX
+        CALL PRINT_INT
+        MOV DL, '.'
+        MOV AH, 02h
+        INT 21h
+        POP EAX
+        XOR EDX, EDX
+        MOV EBX, 1000
+        DIV EBX
+        ADD AL, '0'
+        MOV DL, AL
+        MOV AH, 02h
+        INT 21h
+        MOV EAX, EDX
+        XOR EDX, EDX
+        MOV EBX, 100
+        DIV EBX
+        ADD AL, '0'
+        MOV DL, AL
+        MOV AH, 02h
+        INT 21h
+        MOV EAX, EDX
+        XOR EDX, EDX
+        MOV EBX, 10
+        DIV EBX
+        ADD AL, '0'
+        MOV DL, AL
+        MOV AH, 02h
+        INT 21h
+        MOV EAX, EDX
+        XOR EDX, EDX
+        MOV EBX, 1
+        DIV EBX
+        ADD AL, '0'
+        MOV DL, AL
+        MOV AH, 02h
+        INT 21h
+        MOV EAX, EDX
+        POP EDX
+        POP EBX
+        RET
+PRINT_REAL ENDP
+
+; READ_INT: le inteiro do teclado, retorna em EAX
 READ_INT PROC
-        PUSH BX
-        PUSH CX
-        PUSH DX
-        MOV BX, 0
+        PUSH EBX
+        PUSH ECX
+        PUSH EDX
+        XOR EBX, EBX
 READ_CHR:
         MOV AH, 01h
         INT 21h
@@ -105,20 +165,15 @@ READ_CHR:
         JL  READ_END
         CMP AL, '9'
         JG  READ_END
-        AND AX, 00FFh
-        PUSH AX
-        MOV AX, BX
-        MOV CX, 10
-        MUL CX
-        POP CX
-        ADD AX, CX
-        MOV BX, AX
+        AND EAX, 0Fh
+        IMUL EBX, EBX, 10
+        ADD EBX, EAX
         JMP READ_CHR
 READ_END:
-        MOV AX, BX
-        POP DX
-        POP CX
-        POP BX
+        MOV EAX, EBX
+        POP EDX
+        POP ECX
+        POP EBX
         RET
 READ_INT ENDP
 
@@ -158,6 +213,60 @@ STRCPY_LOOP:
         POP AX
         RET
 STRCPY_PROC ENDP
+
+; STRCAT_PROC: concatena SI e DX em DI, terminando com '$'
+STRCAT_PROC PROC
+        PUSH AX
+        PUSH SI
+        PUSH DI
+STRCAT_LEFT:
+        MOV AL, [SI]
+        CMP AL, '$'
+        JE  STRCAT_RIGHT_PREP
+        MOV [DI], AL
+        INC SI
+        INC DI
+        JMP STRCAT_LEFT
+STRCAT_RIGHT_PREP:
+        MOV SI, DX
+STRCAT_RIGHT:
+        MOV AL, [SI]
+        MOV [DI], AL
+        INC SI
+        INC DI
+        CMP AL, '$'
+        JNE STRCAT_RIGHT
+        POP DI
+        POP SI
+        POP AX
+        RET
+STRCAT_PROC ENDP
+
+; STRCMP_PROC: compara SI e DI; BL=FFh se iguais, BL=00h se diferentes
+STRCMP_PROC PROC
+        PUSH AX
+        PUSH SI
+        PUSH DI
+STRCMP_LOOP:
+        MOV AL, [SI]
+        CMP AL, [DI]
+        JNE STRCMP_FALSE
+        CMP AL, '$'
+        JE  STRCMP_TRUE
+        INC SI
+        INC DI
+        JMP STRCMP_LOOP
+STRCMP_TRUE:
+        MOV BL, 0FFh
+        JMP STRCMP_END
+STRCMP_FALSE:
+        MOV BL, 0
+STRCMP_END:
+        POP DI
+        POP SI
+        POP AX
+        RET
+STRCMP_PROC ENDP
 
 CSEG    ENDS
         END strt

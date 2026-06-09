@@ -6,13 +6,8 @@ SSEG    SEGMENT STACK
 SSEG    ENDS
 
 DSEG    SEGMENT DATA
-        a               DD ?
-        b               DD ?
-        c               DD ?
         x               DD ?
         y               DD ?
-        nome            DB 512 DUP(?)
-        ativo           DB ?
         STR_VERDADEIRO  DB "verdadeiro$"
         STR_FALSO       DB "falso$"
 DSEG    ENDS
@@ -24,6 +19,10 @@ strt:
         MOV AX, DSEG
         MOV DS, AX
 
+        MOV EAX, 5
+        MOV DWORD PTR [x], EAX
+        MOV EAX, 35000
+        MOV DWORD PTR [y], EAX
 
         MOV AH, 4Ch
         INT 21h

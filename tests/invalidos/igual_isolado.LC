@@ -1,0 +1,5 @@
+inicio igualisolado;
+  x : inteiro;
+  l : logico;
+  l := x = 1;
+fim
