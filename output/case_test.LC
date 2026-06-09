@@ -1,0 +1,5 @@
+inicio teste;
+  Inicio : inteiro;
+  INICIO : real;
+  x := Inicio + INICIO;
+fim

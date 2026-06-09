@@ -1,0 +1,14 @@
+inicio escreva_test;
+  i : inteiro;
+  r : real;
+  l : logico;
+  c : caractere;
+  i := 10;
+  r := 3;
+  l := verdadeiro;
+  c := "ola";
+  escreva(i);
+  escreva(r);
+  escreva(l);
+  escreva(c);
+fim

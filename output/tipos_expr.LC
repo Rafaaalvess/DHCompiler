@@ -1,0 +1,10 @@
+inicio tipos;
+  i : inteiro;
+  r : real;
+  l : logico;
+  r := i;
+  l := i > 0;
+  l := i == 0;
+  l := l && verdadeiro;
+  l := l ou falso;
+fim

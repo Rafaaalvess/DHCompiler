@@ -1,0 +1,5 @@
+inicio teste;
+  x : real;
+  y : real;
+  x := x div y;
+fim

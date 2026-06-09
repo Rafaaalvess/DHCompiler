@@ -1,0 +1,15 @@
+inicio aninhado;
+  x : inteiro;
+  y : inteiro;
+  x := 5;
+  y := 3;
+  se x > 0 entao inicio
+    se y > 0 entao inicio
+      x := 1;
+    fim
+    senao inicio
+      x := 2;
+    fim
+  fim
+  escreva(x);
+fim

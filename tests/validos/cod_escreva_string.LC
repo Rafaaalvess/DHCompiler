@@ -1,0 +1,5 @@
+inicio ola;
+  msg : caractere;
+  msg := "Ola Mundo";
+  escreva(msg);
+fim

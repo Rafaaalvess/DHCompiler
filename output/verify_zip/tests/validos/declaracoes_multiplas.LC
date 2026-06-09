@@ -1,0 +1,6 @@
+inicio decl;
+  a, b, c : inteiro;
+  x, y : real;
+  nome : caractere;
+  ativo : logico;
+fim

@@ -1,0 +1,4 @@
+inicio t;
+  x : numero;
+  y : numero;
+fim

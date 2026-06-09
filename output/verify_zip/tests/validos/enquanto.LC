@@ -1,0 +1,7 @@
+inicio loop;
+  i : inteiro;
+  i := 0;
+  enquanto i < 10 faca inicio
+    i := i + 1;
+  fim
+fim

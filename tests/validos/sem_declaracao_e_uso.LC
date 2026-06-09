@@ -1,0 +1,7 @@
+inicio ok;
+  x : inteiro;
+  y : inteiro;
+  x := 10;
+  y := x + 5;
+  escreva(y);
+fim

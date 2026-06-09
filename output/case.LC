@@ -1,0 +1,6 @@
+inicio t;
+  Inicio : inteiro;
+  INICIO : real;
+  x : inteiro;
+  x := Inicio + INICIO;
+fim

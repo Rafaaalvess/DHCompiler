@@ -1,0 +1,7 @@
+/* Este e um comentario de uma linha */
+inicio comentarios;
+  /* comentario
+     de multiplas
+     linhas */
+  x : inteiro;
+fim

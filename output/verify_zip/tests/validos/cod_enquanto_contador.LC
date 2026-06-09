@@ -1,0 +1,8 @@
+inicio contador;
+  i : inteiro;
+  i := 1;
+  enquanto i <= 5 faca inicio
+    escreva(i);
+    i := i + 1;
+  fim
+fim

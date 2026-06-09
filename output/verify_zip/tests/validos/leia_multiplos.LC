@@ -1,0 +1,5 @@
+inicio entrada;
+  a : inteiro;
+  b : inteiro;
+  leia(a, b);
+fim

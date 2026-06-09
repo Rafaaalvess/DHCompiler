@@ -1,0 +1,3 @@
+inicio leia_test;
+  leia(x);
+fim

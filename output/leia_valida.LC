@@ -1,0 +1,4 @@
+inicio leia_test;
+  x : inteiro;
+  leia(x);
+fim

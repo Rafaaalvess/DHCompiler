@@ -1,0 +1,8 @@
+inicio cond;
+  x : inteiro;
+  x := 5;
+  se x > 3 entao inicio
+    x := 100;
+  fim
+  escreva(x);
+fim

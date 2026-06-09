@@ -1,0 +1,12 @@
+inicio tipos;
+  i : inteiro;
+  r : real;
+  l : logico;
+  c : caractere;
+  i := 42;
+  r := 3.14;
+  r := i;
+  l := verdadeiro;
+  l := i > 0;
+  c := "Ola";
+fim

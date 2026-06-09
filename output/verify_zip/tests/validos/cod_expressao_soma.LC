@@ -1,0 +1,8 @@
+inicio soma;
+  a : inteiro;
+  b : inteiro;
+  c : inteiro;
+  a := 10;
+  b := 3;
+  c := a + b;
+fim

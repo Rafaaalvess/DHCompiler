@@ -1,0 +1,7 @@
+inicio prec;
+  a : logico;
+  b : logico;
+  c : inteiro;
+  a := not not b;
+  c := (2 + 3) * 4;
+fim

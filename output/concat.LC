@@ -1,0 +1,6 @@
+inicio concat;
+  a : caractere;
+  b : caractere;
+  a := "ola";
+  b := "mundo";
+fim

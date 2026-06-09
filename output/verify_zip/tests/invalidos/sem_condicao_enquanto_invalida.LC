@@ -1,0 +1,6 @@
+inicio teste;
+  x : inteiro;
+  enquanto x faca inicio
+    x := x - 1;
+  fim
+fim

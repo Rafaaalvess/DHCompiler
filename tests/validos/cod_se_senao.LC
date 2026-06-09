@@ -1,0 +1,11 @@
+inicio cond;
+  x : inteiro;
+  x := 2;
+  se x > 3 entao inicio
+    x := 100;
+  fim
+  senao inicio
+    x := 0;
+  fim
+  escreva(x);
+fim

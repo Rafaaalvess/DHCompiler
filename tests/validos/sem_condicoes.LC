@@ -1,0 +1,11 @@
+inicio cond;
+  x : inteiro;
+  ativo : logico;
+  ativo := verdadeiro;
+  se ativo entao inicio
+    x := 1;
+  fim
+  enquanto x < 10 faca inicio
+    x := x + 1;
+  fim
+fim

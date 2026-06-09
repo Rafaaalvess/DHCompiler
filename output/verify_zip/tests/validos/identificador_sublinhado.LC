@@ -1,0 +1,5 @@
+inicio ids;
+  _var : inteiro;
+  nome_completo : caractere;
+  __x : logico;
+fim

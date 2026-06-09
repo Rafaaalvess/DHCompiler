@@ -1,0 +1,6 @@
+inicio teste;
+  x : inteiro;
+  se x > 0 inicio
+    x := 1;
+  fim
+fim

@@ -1,0 +1,5 @@
+inicio teste;
+  x : inteiro;
+  y : inteiro;
+  x := x && y;
+fim

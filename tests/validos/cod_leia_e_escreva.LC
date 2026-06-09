@@ -1,0 +1,5 @@
+inicio leio;
+  n : inteiro;
+  leia(n);
+  escreva(n);
+fim
